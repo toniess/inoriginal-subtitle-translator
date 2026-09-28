@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Inoriginal Subtitle Translator",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "description": "Click any word in subtitles on inoriginal.cc to see its translation, definitions, and save it for review.",
   "icons": {
     "16": "icons/icon-16.png",
