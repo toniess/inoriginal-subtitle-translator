@@ -33,6 +33,8 @@ src/                 extension sources (this folder is what gets packaged)
   manifest.json
   background.js      service worker: translation providers + vocabulary storage
   content.js/.css    subtitle word wrapping and tooltip on inoriginal.cc
+  subtitle-style.js  subtitle appearance settings (shared by content script and popup)
+  text-utils.js      word cleanup / context highlighting (content script and vocab page)
   popup.*            toolbar popup (settings)
   vocab.*            vocabulary list and flashcard review page
   icons/
@@ -88,8 +90,9 @@ Chrome Web Store step is skipped with a warning.
   - **Google** — fast, broad language coverage, always on.
   - **DeepL** — better for phrases and idioms. Free tier: 500k chars/month.
     Add your key via the extension popup → "Advanced".
-  - **Dictionary** — English definitions, IPA, audio pronunciation, examples
-    from the Free Dictionary API. Single words only. Always on.
+  - **Dictionary** — English definitions, IPA and examples from Wiktionary via
+    [freedictionaryapi.com](https://freedictionaryapi.com); pronunciation via
+    the browser's speech synthesis. Single words only. Always on.
   Switch between sources with the tabs in the tooltip.
 - **Click or select.** Single click on a word translates that word. Drag-select
   multiple words to translate as a phrase. Shift+click also extends selection.
@@ -98,6 +101,11 @@ Chrome Web Store step is skipped with a warning.
   preferred when saving.
 - **Spaced repetition review.** Flashcard mode with Leitner-box intervals
   (1h → 1d → 3d → 7d → 14d → 30d).
+- **Subtitle appearance.** Popup → "Subtitle appearance": font, size, text
+  and background colour with opacity, bold, outline — with a live preview.
+- **Instant play/pause.** The player normally waits ~0.35s after a click on
+  the picture (to detect a double-click); the extension toggles right away.
+  Double-click still switches fullscreen. Can be turned off in the popup.
 - **Works in fullscreen.** Uses the Popover API top-layer so the tooltip
   appears even when the player is fullscreen.
 
@@ -113,8 +121,10 @@ detects this automatically.
 ## Data
 
 Everything is local. Translations go to whichever provider you've configured;
-nothing else leaves your browser. Export to CSV from the vocabulary page if
-you want a backup or Anki import.
+nothing else leaves your browser. On the vocabulary page, **Backup** downloads
+a JSON file with all words and review progress, and **Restore** merges one
+back in (for words in both, the most recently reviewed copy wins). **Export
+CSV** is for spreadsheets and Anki import.
 
 ## Limitations
 

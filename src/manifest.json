@@ -10,14 +10,15 @@
     "128": "icons/icon-128.png"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "https://inoriginal.cc/*",
     "https://translate.googleapis.com/*",
     "https://api-free.deepl.com/*",
     "https://api.deepl.com/*",
-    "https://api.dictionaryapi.dev/*"
+    "https://freedictionaryapi.com/*"
   ],
   "content_scripts": [
     {
@@ -25,6 +26,8 @@
         "https://inoriginal.cc/*"
       ],
       "js": [
+        "text-utils.js",
+        "subtitle-style.js",
         "content.js"
       ],
       "css": [
@@ -45,17 +48,5 @@
       "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
     }
-  },
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "vocab.html",
-        "vocab.css",
-        "vocab.js"
-      ],
-      "matches": [
-        "https://inoriginal.cc/*"
-      ]
-    }
-  ]
+  }
 }

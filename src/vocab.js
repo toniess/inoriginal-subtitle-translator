@@ -21,30 +21,16 @@ async function reviewEntry(id, knewIt) {
 }
 
 async function clearAll() {
-  await chrome.runtime.sendMessage({ type: 'vocab:clear' });
+  const resp = await chrome.runtime.sendMessage({ type: 'vocab:clear' });
+  if (!resp?.ok) throw new Error(resp?.error || 'Clear failed');
 }
 
 // ---------- Utils ----------
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[c]));
-}
-
-function escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function highlightWord(context, word) {
-  if (!context || !word) return escapeHtml(context || '');
-  const safe = escapeHtml(context);
-  const pattern = new RegExp(`\\b(${escapeRegex(word)})\\b`, 'ig');
-  return safe.replace(pattern, '<mark>$1</mark>');
-}
+const { escapeHtml, highlightHtml: highlightWord } = globalThis.YstText;
 
 function formatRelative(ts) {
-  if (!ts) return '';
+  if (!Number.isFinite(ts) || !ts) return '';
   const diff = Date.now() - ts;
   const abs = Math.abs(diff);
   const future = diff < 0;
@@ -52,8 +38,8 @@ function formatRelative(ts) {
   const hour = 60 * minute;
   const day = 24 * hour;
   let text;
-  if (abs < minute) text = 'just now';
-  else if (abs < hour) text = `${Math.floor(abs / minute)}m`;
+  if (abs < minute) return 'just now';
+  if (abs < hour) text = `${Math.floor(abs / minute)}m`;
   else if (abs < day) text = `${Math.floor(abs / hour)}h`;
   else if (abs < 30 * day) text = `${Math.floor(abs / day)}d`;
   else text = `${Math.floor(abs / (30 * day))}mo`;
@@ -81,8 +67,20 @@ let searchQuery = '';
 async function renderList() {
   allEntries = await fetchList();
   applyListFilter();
-  updateDueBadge();
+  updateDueBadge(allEntries);
 }
+
+// Words saved on the site (or reviewed in another tab) while this page is
+// open show up without a reload.
+let refreshTimer;
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes.vocabulary) return;
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    if ($('#view-list').classList.contains('active')) renderList();
+    else fetchList().then(updateDueBadge);
+  }, 100);
+});
 
 function applyListFilter() {
   const list = $('#word-list');
@@ -152,11 +150,11 @@ function renderItem(entry) {
         <span class="level-dot" style="--level-color:${levelColor}">level ${entry.srsLevel || 0}</span>
         <span>${reviewLabel}</span>
         ${dueLabel ? `<span>${dueLabel}</span>` : ''}
-        <span>added ${formatRelative(entry.addedAt)}</span>
+        ${formatRelative(entry.addedAt) ? `<span>added ${formatRelative(entry.addedAt)}</span>` : ''}
       </div>
       ${ctx}
       <div class="word-actions">
-        <button class="icon-btn" data-remove="${entry.id}" title="Delete">✕</button>
+        <button class="icon-btn" data-remove="${escapeHtml(entry.id)}" title="Delete">✕</button>
       </div>
     </li>
   `;
@@ -168,36 +166,87 @@ $('#search').addEventListener('input', (e) => {
 });
 
 $('#clear-btn').addEventListener('click', async () => {
-  if (allEntries.length === 0) return;
-  if (!confirm(`Delete all ${allEntries.length} words? This can't be undone.`)) {
+  // Re-read so the count in the prompt matches what will actually be deleted.
+  allEntries = await fetchList();
+  if (allEntries.length === 0) return applyListFilter();
+  if (!confirm(`Delete all ${allEntries.length} words? This can't be undone.\n\nTip: use "Backup" first to keep a copy.`)) {
     return;
   }
-  await clearAll();
-  allEntries = [];
-  applyListFilter();
-  updateDueBadge();
+  try {
+    await clearAll();
+  } catch (err) {
+    alert(`Could not clear: ${err.message}`);
+  }
+  renderList();
 });
 
-$('#export-btn').addEventListener('click', () => {
-  if (allEntries.length === 0) return;
-  const header = ['word', 'translation', 'context', 'addedAt', 'sourceUrl'];
-  const rows = allEntries.map((e) => [
-    e.word,
-    e.translation,
-    e.context,
-    new Date(e.addedAt).toISOString(),
-    e.sourceUrl,
-  ]);
-  const csv = [header, ...rows]
-    .map((r) => r.map((v) => `"${String(v || '').replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+function downloadFile(name, content, type) {
+  const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `vocabulary-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = name;
   a.click();
-  URL.revokeObjectURL(url);
+  // Revoking synchronously can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+function isoDate(ts) {
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString();
+}
+
+// Spreadsheet apps run cells starting with = + - @ (or tab/CR) as formulas;
+// subtitles often start with a dialogue dash, and a hostile one could hold
+// =HYPERLINK(...). Prefix such cells with ' so they stay text.
+function csvCell(v) {
+  let text = String(v ?? '');
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+$('#export-btn').addEventListener('click', async () => {
+  const entries = await fetchList();
+  if (entries.length === 0) return;
+  const header = ['word', 'translation', 'context', 'addedAt', 'sourceUrl'];
+  const rows = entries.map((e) => [
+    e.word,
+    e.translation,
+    e.context,
+    isoDate(e.addedAt),
+    e.sourceUrl,
+  ]);
+  const csv = [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n');
+  // The BOM makes Excel read the file as UTF-8 (Cyrillic, CJK, …).
+  downloadFile(`vocabulary-${today()}.csv`, `\uFEFF${csv}`, 'text/csv;charset=utf-8');
+});
+
+// Full backup, including review progress, that "Restore" can read back.
+$('#backup-btn').addEventListener('click', async () => {
+  const entries = await fetchList();
+  const backup = { format: 'inoriginal-vocabulary', version: 1, exportedAt: Date.now(), entries };
+  downloadFile(`vocabulary-backup-${today()}.json`, JSON.stringify(backup, null, 2), 'application/json');
+});
+
+$('#restore-btn').addEventListener('click', () => $('#restore-file').click());
+
+$('#restore-file').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const entries = Array.isArray(data) ? data : data?.entries;
+    if (!Array.isArray(entries)) throw new Error('This is not a vocabulary backup file.');
+    const resp = await chrome.runtime.sendMessage({ type: 'vocab:import', entries });
+    if (!resp?.ok) throw new Error(resp?.error || 'Import failed');
+    alert(`Restored: ${resp.added} new, ${resp.updated} updated. ${resp.count} words in total.`);
+  } catch (err) {
+    alert(`Could not restore: ${err.message}`);
+  }
+  renderList();
 });
 
 // ---------- Review view ----------
@@ -294,18 +343,29 @@ $('#show-btn').addEventListener('click', () => {
   $('#grade-row').hidden = false;
 });
 
+// Guards against double clicks and key repeat grading one card twice (which
+// would also skip the next card).
+let grading = false;
+
 $$('.btn-grade').forEach((btn) => {
   btn.addEventListener('click', async () => {
+    if (grading) return;
     const knewIt = btn.dataset.knew === 'true';
     const entry = reviewQueue[reviewIndex];
     if (!entry) return;
 
-    await reviewEntry(entry.id, knewIt);
-    if (knewIt) reviewStats.knew++;
-    else reviewStats.didntKnow++;
-
-    reviewIndex++;
-    showCurrentCard();
+    grading = true;
+    $$('.btn-grade').forEach((b) => { b.disabled = true; });
+    try {
+      await reviewEntry(entry.id, knewIt);
+      if (knewIt) reviewStats.knew++;
+      else reviewStats.didntKnow++;
+      reviewIndex++;
+      showCurrentCard();
+    } finally {
+      grading = false;
+      $$('.btn-grade').forEach((b) => { b.disabled = false; });
+    }
   });
 });
 
@@ -327,6 +387,7 @@ $('#review-all-btn').addEventListener('click', () => startReview(true));
 
 // Keyboard shortcuts on the review card.
 document.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
   if (!$('#view-review').classList.contains('active')) return;
   if ($('#review-card-wrap').hidden) return;
 
@@ -350,8 +411,8 @@ document.addEventListener('keydown', (e) => {
 
 // ---------- Due-count badge ----------
 
-async function updateDueBadge() {
-  const list = await fetchList();
+async function updateDueBadge(knownList) {
+  const list = knownList || await fetchList();
   const now = Date.now();
   const due = list.filter((e) => !e.nextReview || e.nextReview <= now).length;
   const badge = $('#due-badge');
@@ -366,4 +427,3 @@ async function updateDueBadge() {
 // ---------- Init ----------
 
 renderList();
-updateDueBadge();

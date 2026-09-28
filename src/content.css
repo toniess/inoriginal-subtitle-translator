@@ -1,7 +1,7 @@
 /* The subtitle container has pointer-events: none on a parent pjsdiv,
    so we must explicitly re-enable pointer events on tokens. The player
-   also disables text selection on its UI — we re-enable it on subtitles
-   so the user can drag-select multiple words to translate as a phrase. */
+   also disables text selection on its UI; we keep native selection off and
+   implement drag-to-select ourselves in content.js. */
 
 #pjs_playerjs_subtitle,
 #pjs_playerjs_subtitle * {
@@ -12,6 +12,8 @@
 
 .yst-word-token {
   cursor: pointer;
+  -webkit-user-drag: none;
+  touch-action: none;
   border-radius: 6px;
   padding: 0 2px;
   transition:
@@ -22,7 +24,7 @@
   -webkit-user-select: none !important;
 }
 
-.yst-word-token:hover {
+.yst-word-token.yst-hover {
   background-color: rgba(255, 221, 87, 0.45);
   outline: 1px solid rgba(255, 221, 87, 0.8);
 }
@@ -30,12 +32,17 @@
 .yst-word-token.yst-selected {
   background: rgba(255, 230, 120, 0.85);
   color: #1a1a1a;
+  text-shadow: none;
 }
 
 /* Tooltip ---------------------------------------------------------------- */
 
 .yst-tooltip {
   position: fixed;
+  /* The UA style for [popover] is inset: 0; margin: auto — that would pull
+     the box away from the left/top we set in JS. */
+  inset: auto;
+  margin: 0;
   z-index: 2147483647;
   min-width: 200px;
   max-width: 360px;
