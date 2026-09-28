@@ -1,0 +1,46 @@
+name: Release
+
+# Triggered by pushing a tag like v1.6.0 (created by `npm version`).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+      PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+      CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+      CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+      REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      # Also verifies that the tag matches package.json / manifest.json.
+      - run: npm run build
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "$GITHUB_REF_NAME" --generate-notes
+
+      - name: Publish to Chrome Web Store
+        if: env.EXTENSION_ID != '' && env.REFRESH_TOKEN != ''
+        run: npx chrome-webstore-upload --source dist/*.zip
+
+      - name: Chrome Web Store skipped
+        if: env.EXTENSION_ID == '' || env.REFRESH_TOKEN == ''
+        run: echo "::warning::CWS_* secrets are not set — skipped Chrome Web Store publish. See README."

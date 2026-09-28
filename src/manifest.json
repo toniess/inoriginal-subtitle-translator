@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "Inoriginal Subtitle Translator",
+  "version": "1.5.2",
+  "description": "Click any word in subtitles on inoriginal.cc to see its translation, definitions, and save it for review.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://inoriginal.cc/*",
+    "https://translate.googleapis.com/*",
+    "https://api-free.deepl.com/*",
+    "https://api.deepl.com/*",
+    "https://api.dictionaryapi.dev/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://inoriginal.cc/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Subtitle Translator settings",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "vocab.html",
+        "vocab.css",
+        "vocab.js"
+      ],
+      "matches": [
+        "https://inoriginal.cc/*"
+      ]
+    }
+  ]
+}

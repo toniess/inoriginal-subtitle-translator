@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Vocabulary</title>
+  <link rel="stylesheet" href="vocab.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <h1 class="brand">
+        <span class="brand-mark">T</span>
+        My vocabulary
+      </h1>
+      <div class="tabs">
+        <button class="tab active" data-view="list">List</button>
+        <button class="tab" data-view="review">
+          Review <span class="badge" id="due-badge" hidden></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- LIST VIEW ------------------------------------------------------- -->
+    <section id="view-list" class="view active">
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Search words…" />
+        <div class="toolbar-actions">
+          <span class="count" id="word-count">0 words</span>
+          <button id="export-btn" class="btn-ghost" title="Export as CSV">Export</button>
+          <button id="clear-btn" class="btn-danger" title="Delete all">Clear all</button>
+        </div>
+      </div>
+
+      <div id="empty-state" class="empty-state" hidden>
+        <div class="empty-illustration">📖</div>
+        <h2>No words yet</h2>
+        <p>Click any word in subtitles on inoriginal.cc to add it here.</p>
+      </div>
+
+      <ul id="word-list" class="word-list"></ul>
+    </section>
+
+    <!-- REVIEW VIEW ----------------------------------------------------- -->
+    <section id="view-review" class="view">
+      <div id="review-empty" class="empty-state" hidden>
+        <div class="empty-illustration">✨</div>
+        <h2>All caught up</h2>
+        <p>No words to review right now. Come back later — new cards become available as time passes.</p>
+        <button id="review-all-btn" class="btn-ghost">Review all anyway</button>
+      </div>
+
+      <div id="review-card-wrap" class="card-wrap" hidden>
+        <div class="card-progress">
+          <span id="review-progress">1 / 1</span>
+        </div>
+
+        <article class="card" id="review-card">
+          <div class="card-word" id="card-word"></div>
+          <div class="card-context" id="card-context" hidden></div>
+
+          <div class="card-reveal" id="card-reveal" hidden>
+            <div class="card-translation" id="card-translation"></div>
+            <div class="card-dict" id="card-dict"></div>
+          </div>
+
+          <div class="card-actions">
+            <button id="show-btn" class="btn-primary">Show answer</button>
+            <div class="grade-row" id="grade-row" hidden>
+              <button class="btn-grade btn-grade-bad" data-knew="false">
+                <span class="grade-label">Didn't know</span>
+                <span class="grade-hint">Show again soon</span>
+              </button>
+              <button class="btn-grade btn-grade-good" data-knew="true">
+                <span class="grade-label">I knew it</span>
+                <span class="grade-hint">Show later</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <div class="card-meta" id="card-meta"></div>
+      </div>
+
+      <div id="review-done" class="empty-state" hidden>
+        <div class="empty-illustration">🎉</div>
+        <h2>Session complete</h2>
+        <p id="session-summary"></p>
+        <button id="review-again-btn" class="btn-ghost">Start another session</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="vocab.js"></script>
+</body>
+</html>

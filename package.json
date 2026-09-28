@@ -1,0 +1,23 @@
+{
+  "name": "inoriginal-subtitle-translator",
+  "version": "1.5.2",
+  "private": true,
+  "description": "Chrome extension: click any word in subtitles on inoriginal.cc to translate and save it for review.",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "build": "node scripts/sync-version.mjs --check && web-ext build --source-dir src --artifacts-dir dist --filename inoriginal-subtitle-translator-{version}.zip --overwrite-dest",
+    "icons": "node scripts/make-icons.mjs",
+    "version": "node scripts/sync-version.mjs && git add src/manifest.json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "chrome-webstore-upload-cli": "^4.0.1",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0",
+    "web-ext": "^10.7.0"
+  }
+}

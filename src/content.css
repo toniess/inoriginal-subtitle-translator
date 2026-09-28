@@ -1,0 +1,341 @@
+/* The subtitle container has pointer-events: none on a parent pjsdiv,
+   so we must explicitly re-enable pointer events on tokens. The player
+   also disables text selection on its UI — we re-enable it on subtitles
+   so the user can drag-select multiple words to translate as a phrase. */
+
+#pjs_playerjs_subtitle,
+#pjs_playerjs_subtitle * {
+  pointer-events: auto !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.yst-word-token {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0 2px;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+  pointer-events: auto !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.yst-word-token:hover {
+  background-color: rgba(255, 221, 87, 0.45);
+  outline: 1px solid rgba(255, 221, 87, 0.8);
+}
+
+.yst-word-token.yst-selected {
+  background: rgba(255, 230, 120, 0.85);
+  color: #1a1a1a;
+}
+
+/* Tooltip ---------------------------------------------------------------- */
+
+.yst-tooltip {
+  position: fixed;
+  z-index: 2147483647;
+  min-width: 200px;
+  max-width: 360px;
+  padding: 12px 14px;
+  background: #1a1a1a;
+  color: #f5f5f5;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.25);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  opacity: 0;
+  transform: translateY(4px) scale(0.98);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  pointer-events: none;
+}
+
+/* Everything inside the tooltip must keep its own pointer events even if the
+   page tries to disable them globally — important in fullscreen where the
+   player layers heavy inline styles over its descendants. */
+.yst-tooltip.yst-visible,
+.yst-tooltip.yst-visible * {
+  pointer-events: auto !important;
+}
+
+.yst-tooltip.yst-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.yst-content { display: flex; flex-direction: column; gap: 8px; }
+.yst-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.yst-word { font-weight: 600; font-size: 15px; color: #ffdd57; }
+.yst-arrow { color: #888; font-size: 12px; }
+.yst-translation { font-weight: 500; color: #fff; }
+.yst-dict {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.yst-dict-row { display: flex; gap: 8px; align-items: baseline; font-size: 13px; }
+.yst-pos {
+  color: #ffdd57;
+  opacity: 0.8;
+  font-style: italic;
+  font-size: 11px;
+  min-width: 50px;
+  text-transform: lowercase;
+}
+.yst-terms { color: #ddd; }
+.yst-error { color: #ff7676; font-size: 13px; }
+
+.yst-loading { display: flex; gap: 4px; padding: 4px 0; }
+.yst-loading span {
+  width: 6px;
+  height: 6px;
+  background: #ffdd57;
+  border-radius: 50%;
+  animation: yst-bounce 1s infinite ease-in-out;
+}
+.yst-loading span:nth-child(2) { animation-delay: 0.15s; }
+.yst-loading span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes yst-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* Context line ---------------------------------------------------------- */
+
+.yst-context {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #b0b0b0;
+  font-style: italic;
+  padding: 8px 0 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 2px;
+}
+
+.yst-context mark {
+  background: rgba(255, 221, 87, 0.25);
+  color: #ffdd57;
+  padding: 0 2px;
+  border-radius: 2px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* Action buttons -------------------------------------------------------- */
+
+.yst-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.yst-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+  font-family: inherit;
+}
+
+.yst-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.yst-btn-primary {
+  background: #ffdd57;
+  color: #1a1a1a;
+}
+
+.yst-btn-primary:hover:not(:disabled) {
+  background: #ffe580;
+}
+
+.yst-btn-saved {
+  background: rgba(80, 200, 120, 0.2);
+  color: #50c878;
+  cursor: default;
+}
+
+.yst-btn-saved:hover {
+  background: rgba(80, 200, 120, 0.2);
+}
+
+.yst-btn-ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ccc;
+  flex: 0 0 auto;
+  padding: 0 12px;
+}
+
+.yst-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+/* Provider tabs --------------------------------------------------------- */
+
+.yst-tabs {
+  display: flex;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  padding: 3px;
+}
+
+.yst-tab {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #888;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.12s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.yst-tab:hover {
+  color: #ccc;
+}
+
+.yst-tab.active {
+  background: rgba(255, 221, 87, 0.15);
+  color: #ffdd57;
+}
+
+.yst-panes {
+  min-height: 20px;
+}
+
+.yst-pane-wrap {
+  animation: yst-fade 0.15s ease;
+}
+
+@keyframes yst-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.yst-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.yst-pane-translation {
+  font-size: 14px;
+  color: #f5f5f5;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.yst-pane-note {
+  font-size: 11px;
+  color: #777;
+  font-style: italic;
+}
+
+.yst-pane-error {
+  font-size: 12px;
+  color: #ff7676;
+  padding: 4px 0;
+}
+
+/* Dictionary-specific styles -------------------------------------------- */
+
+.yst-phonetic {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #aaa;
+  font-family: 'Courier New', monospace;
+}
+
+.yst-audio-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ccc;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  padding: 0;
+  transition: all 0.12s ease;
+}
+
+.yst-audio-btn:hover {
+  background: rgba(255, 221, 87, 0.15);
+  border-color: #ffdd57;
+}
+
+.yst-defs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.yst-def-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.yst-def-row .yst-pos {
+  display: inline-block;
+  margin-right: 4px;
+}
+
+.yst-def-text {
+  color: #ddd;
+  display: inline;
+}
+
+.yst-def-example {
+  color: #888;
+  font-style: italic;
+  font-size: 11px;
+  padding-left: 8px;
+  border-left: 2px solid rgba(255, 221, 87, 0.3);
+  margin-top: 2px;
+}
+
+/* Scrollbar for definitions list ---------------------------------------- */
+
+.yst-defs::-webkit-scrollbar {
+  width: 5px;
+}
+.yst-defs::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
