@@ -29,7 +29,10 @@
         <input id="search" type="search" placeholder="Search words…" />
         <div class="toolbar-actions">
           <span class="count" id="word-count">0 words</span>
-          <button id="export-btn" class="btn-ghost" title="Export as CSV">Export</button>
+          <button id="export-btn" class="btn-ghost" title="Export as CSV (e.g. for Anki)">Export CSV</button>
+          <button id="backup-btn" class="btn-ghost" title="Download a full backup, including review progress">Backup</button>
+          <button id="restore-btn" class="btn-ghost" title="Restore words from a backup file (merges with the current list)">Restore</button>
+          <input id="restore-file" type="file" accept="application/json,.json" hidden />
           <button id="clear-btn" class="btn-danger" title="Delete all">Clear all</button>
         </div>
       </div>
@@ -93,6 +96,7 @@
     </section>
   </main>
 
+  <script src="text-utils.js"></script>
   <script src="vocab.js"></script>
 </body>
 </html>

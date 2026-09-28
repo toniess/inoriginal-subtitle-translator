@@ -14,7 +14,8 @@ answer the lookup:
 - **Google Translate** (`translate.googleapis.com`) — always.
 - **DeepL** (`api.deepl.com` / `api-free.deepl.com`) — only if you entered your
   own DeepL API key. The key is sent to DeepL to authenticate the request.
-- **Free Dictionary API** (`api.dictionaryapi.dev`) — for single English words.
+- **Free Dictionary API** (`freedictionaryapi.com`, Wiktionary data) — for single
+  English words. Pronunciation uses the browser's built-in speech synthesis.
 
 These requests are subject to the respective providers' privacy policies.
 
@@ -22,12 +23,15 @@ These requests are subject to the respective providers' privacy policies.
 
 - Your saved vocabulary (words, translations, subtitle context, page URL, and
   review progress) is stored in `chrome.storage.local` on your device.
-- Settings (target language, pause-on-click, DeepL API key) are stored in
-  `chrome.storage.sync`, which Chrome may sync between your own signed-in
-  browsers.
+- Your DeepL API key (if any) is stored in `chrome.storage.local` on your
+  device only. It is not synced and is only read by the extension's
+  background service worker, never by scripts running on web pages.
+- Other settings (target language, playback options, subtitle appearance) are
+  stored in `chrome.storage.sync`, which Chrome may sync between your own
+  signed-in browsers.
 
-You can delete your vocabulary from the vocabulary page at any time, and
-removing the extension deletes all of its stored data.
+You can back up, restore, or delete your vocabulary from the vocabulary page
+at any time. Removing the extension deletes all of its stored data.
 
 ## Contact
 

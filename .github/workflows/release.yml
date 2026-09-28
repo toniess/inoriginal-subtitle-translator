@@ -32,15 +32,33 @@ jobs:
       # Also verifies that the tag matches package.json / manifest.json.
       - run: npm run build
 
-      - name: Create GitHub Release
+      # Idempotent, so a failed run (e.g. the Web Store step) can be re-run.
+      - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.zip --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.zip --title "$GITHUB_REF_NAME" --generate-notes
+          fi
+
+      - name: Check Chrome Web Store secrets
+        id: cws
+        run: |
+          missing=""
+          for name in EXTENSION_ID PUBLISHER_ID CLIENT_ID CLIENT_SECRET REFRESH_TOKEN; do
+            [ -n "${!name}" ] || missing="$missing CWS_$name"
+          done
+          if [ -z "$missing" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          elif [ "$missing" = " CWS_EXTENSION_ID CWS_PUBLISHER_ID CWS_CLIENT_ID CWS_CLIENT_SECRET CWS_REFRESH_TOKEN" ]; then
+            echo "::warning::CWS_* secrets are not set — skipped Chrome Web Store publish. See README."
+          else
+            echo "::error::Some Chrome Web Store secrets are missing:$missing"
+            exit 1
+          fi
 
       - name: Publish to Chrome Web Store
-        if: env.EXTENSION_ID != '' && env.REFRESH_TOKEN != ''
+        if: steps.cws.outputs.ready == 'true'
         run: npx chrome-webstore-upload --source dist/*.zip
-
-      - name: Chrome Web Store skipped
-        if: env.EXTENSION_ID == '' || env.REFRESH_TOKEN == ''
-        run: echo "::warning::CWS_* secrets are not set — skipped Chrome Web Store publish. See README."
