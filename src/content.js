@@ -4,7 +4,11 @@
 (() => {
   'use strict';
 
-  const SUBTITLE_CONTAINER_ID = 'pjs_playerjs_subtitle';
+  // The site's player: <div.player-subs> sits next to <video.player-video>
+  // and holds one <div.sub-line.sub-en> / <div.sub-line.sub-ru> per language.
+  const SUBTITLE_CONTAINER = '.player-subs';
+  const PLAYER_VIDEO = 'video.player-video';
+  const EN_LINE = '.sub-line.sub-en';
 
   let targetLang = 'ru';
   let pauseOnClick = true;
@@ -49,7 +53,7 @@
       el.id = 'yst-subtitle-style';
       (document.head || document.documentElement).appendChild(el);
     }
-    el.textContent = subtitleStyleCss(style, `#${SUBTITLE_CONTAINER_ID}`);
+    el.textContent = subtitleStyleCss(style, SUBTITLE_CONTAINER);
   }
 
   // ---------- Safe messaging ----------
@@ -540,8 +544,8 @@
 
   // ---------- Word wrapping ----------
 
-  // Playerjs re-renders the subtitle ~12 times per second even when the text
-  // hasn't changed, so every token element is short-lived. Hover and
+  // The player rebuilds the subtitle lines whenever the cue changes (and on
+  // some UI actions), so token elements can be short-lived. Hover and
   // selection are therefore tracked by token index and re-applied to fresh
   // tokens as they're created — this keeps the highlight steady instead of
   // restarting its transition on each re-render.
@@ -552,8 +556,16 @@
     return !!selectedRange && i >= selectedRange.from && i <= selectedRange.to;
   }
 
+  // Prefer the subtitles of the actual video player over any other
+  // .player-subs that might be on the page.
+  function findSubtitleContainer() {
+    const video = document.querySelector(PLAYER_VIDEO);
+    return video?.parentElement?.querySelector(`:scope > ${SUBTITLE_CONTAINER}`) ||
+           document.querySelector(SUBTITLE_CONTAINER);
+  }
+
   function subtitleTokens() {
-    const container = document.getElementById(SUBTITLE_CONTAINER_ID);
+    const container = observedContainer?.isConnected ? observedContainer : findSubtitleContainer();
     return container ? Array.from(container.querySelectorAll('.yst-word-token')) : [];
   }
 
@@ -569,7 +581,9 @@
     }
   }
 
-  function wrapTextNodes(root) {
+  // Wraps words under `root` into tokens numbered from `index`; returns the
+  // next free index.
+  function wrapTextNodes(root, index) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         if (node.parentElement?.classList?.contains('yst-word-token')) {
@@ -585,7 +599,7 @@
     let n;
     while ((n = walker.nextNode())) targets.push(n);
 
-    let index = root.querySelectorAll('.yst-word-token').length;
+    index += root.querySelectorAll('.yst-word-token').length;
 
     for (const textNode of targets) {
       const text = textNode.nodeValue;
@@ -609,11 +623,28 @@
       }
       textNode.parentNode.replaceChild(frag, textNode);
     }
+    return index;
+  }
+
+  // On desktop the player splits English lines into its own <span.sub-word>
+  // elements (punctuation stays in plain text nodes between them) and handles
+  // clicks on them itself — word translation is a paid feature there. Turn
+  // them back into plain text so our tokens split on whitespace only, the
+  // same way they always have.
+  function flattenSiteWords(line) {
+    const words = line.querySelectorAll('.sub-word');
+    if (!words.length) return;
+    for (const w of words) w.replaceWith(document.createTextNode(w.textContent));
+    line.normalize();
   }
 
   function processSubtitleContainer(container) {
     if (!container) return;
-    const currentText = container.textContent || '';
+    // The player's own word-picking mode keeps references to its spans.
+    if (container.parentElement?.classList.contains('words')) return;
+    const lines = Array.from(container.querySelectorAll(EN_LINE));
+    // Only the English line is clickable; the Russian one is a translation.
+    const currentText = lines.map((l) => l.textContent).join('\n');
     if (!currentText.trim()) return;
     if (currentText === lastSeenText && container.querySelector('.yst-word-token')) {
       return;
@@ -626,15 +657,17 @@
       if (selection) selection.stale = true;
     }
     lastSeenText = currentText;
-    wrapTextNodes(container);
+    let index = 0;
+    for (const line of lines) {
+      flattenSiteWords(line);
+      index = wrapTextNodes(line, index);
+    }
   }
 
   // ---------- Click handling ----------
 
   function getVideo() {
-    return document.querySelector('video.html5-main-video') ||
-           document.querySelector('#playerjs video') ||
-           document.querySelector('video');
+    return document.querySelector(PLAYER_VIDEO) || document.querySelector('video');
   }
 
   // Built from the word tokens so that separate lines ("Hello there" /
@@ -642,8 +675,8 @@
   function getSubtitleText() {
     const tokens = subtitleTokens();
     if (tokens.length) return tokens.map((t) => t.textContent.trim()).join(' ');
-    const container = document.getElementById(SUBTITLE_CONTAINER_ID);
-    return container ? (container.textContent || '').trim() : '';
+    const line = observedContainer?.querySelector(EN_LINE);
+    return line ? (line.textContent || '').trim() : '';
   }
 
   // ---------- Selection helpers ----------
@@ -775,10 +808,10 @@
 
   // ---------- Pointer handling ----------
   //
-  // Playerjs lets users drag the subtitle block around (sub_drag). Its
-  // handlers sit on the subtitle element, so we intercept pointer events on
-  // word tokens in the capture phase on window — before they reach the
-  // player — and run our own click / drag-to-select logic from there.
+  // The player has its own mousedown/mouseup word picking on the subtitle
+  // element, so we intercept pointer events on word tokens in the capture
+  // phase on window — before they reach the player — and run our own
+  // click / drag-to-select logic from there.
   //
   //   * Press and release on a word → translate that word.
   //   * Press and drag across words → select the contiguous range between the
@@ -903,55 +936,23 @@
     handleScreenClick(e);
   }, true);
 
-  // Playerjs waits ~350ms after a click on the picture to rule out a
+  // The player waits 220ms after a click on the picture to rule out a
   // double-click (fullscreen) before toggling playback. We toggle
-  // immediately instead and hide the click from the player. The player
-  // detects double-clicks from those same clicks, so on dblclick we replay a
-  // click pair to it and let it enter/exit fullscreen itself (it tracks its
-  // own fullscreen layout). A double-click toggles playback twice (net no
-  // change), like YouTube.
-  let forwardingClicks = false;
-
-  function playerVideoFromEvent(e) {
-    if (!instantPlayPause || forwardingClicks || e.button !== 0) return null;
-    const video = e.target;
-    if (!(video instanceof HTMLVideoElement)) return null;
-    return video.closest('[id^="oframe"]') ? video : null;
-  }
-
+  // immediately instead and hide the click from the player. Its fullscreen
+  // listener is a dblclick handler on the video itself, which we leave
+  // alone; a double-click toggles playback twice (net no change), like
+  // YouTube.
   function handleScreenClick(e) {
-    const video = playerVideoFromEvent(e);
-    if (!video) return;
+    if (!instantPlayPause || e.button !== 0) return;
+    const video = e.target;
+    if (!(video instanceof HTMLVideoElement) || !video.matches(PLAYER_VIDEO)) return;
+    // In its word-picking mode a click on the picture exits that mode.
+    if (video.parentElement?.classList.contains('words')) return;
     e.stopPropagation();
     e.preventDefault();
     if (video.paused) video.play().catch(() => {});
     else video.pause();
   }
-
-  window.addEventListener('dblclick', (e) => {
-    const video = playerVideoFromEvent(e);
-    if (!video) return;
-    forwardingClicks = true;
-    try {
-      // Paused state would flip with the player's own click handling, so
-      // restore it after the player has processed the pair.
-      const wasPaused = video.paused;
-      for (let i = 1; i <= 2; i++) {
-        video.dispatchEvent(new MouseEvent('click', {
-          bubbles: true, cancelable: true, composed: true, detail: i,
-          clientX: e.clientX, clientY: e.clientY, view: window,
-        }));
-      }
-      setTimeout(() => {
-        if (video.paused !== wasPaused) {
-          if (wasPaused) video.pause();
-          else video.play().catch(() => {});
-        }
-      }, 500);
-    } finally {
-      forwardingClicks = false;
-    }
-  }, true);
 
   // Keyboard: pressing Space (player play/pause shortcut) or Escape should
   // dismiss the tooltip. We don't preventDefault on Space — the player's own
@@ -981,7 +982,7 @@
   });
 
   function attachToContainer() {
-    const container = document.getElementById(SUBTITLE_CONTAINER_ID);
+    const container = findSubtitleContainer();
     if (container === observedContainer) return;
     subtitleObserver.disconnect();
     observedContainer = container;

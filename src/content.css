@@ -1,10 +1,10 @@
-/* The subtitle container has pointer-events: none on a parent pjsdiv,
-   so we must explicitly re-enable pointer events on tokens. The player
-   also disables text selection on its UI; we keep native selection off and
-   implement drag-to-select ourselves in content.js. */
+/* Outside desktop mode the player sets pointer-events: none on the subtitle
+   container, so we must explicitly re-enable pointer events on tokens. The
+   player also disables text selection on its UI; we keep native selection
+   off and implement drag-to-select ourselves in content.js. */
 
-#pjs_playerjs_subtitle,
-#pjs_playerjs_subtitle * {
+.player-subs,
+.player-subs * {
   pointer-events: auto !important;
   user-select: none !important;
   -webkit-user-select: none !important;

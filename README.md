@@ -103,7 +103,7 @@ Chrome Web Store step is skipped with a warning.
   (1h → 1d → 3d → 7d → 14d → 30d).
 - **Subtitle appearance.** Popup → "Subtitle appearance": font, size, text
   and background colour with opacity, bold, outline — with a live preview.
-- **Instant play/pause.** The player normally waits ~0.35s after a click on
+- **Instant play/pause.** The player normally waits ~0.2s after a click on
   the picture (to detect a double-click); the extension toggles right away.
   Double-click still switches fullscreen. Can be turned off in the popup.
 - **Works in fullscreen.** Uses the Popover API top-layer so the tooltip
